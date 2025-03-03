@@ -12,7 +12,7 @@ import TodoApp from "./todo-list/index.jsx";
 
 const router = createBrowserRouter([
   {
-    path: "/todo",
+    path: "/",
     element: <TodoApp />,
   },
 ]);
