@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiPlus, FiEdit2, FiTrash2, FiCheck } from "react-icons/fi";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const API_BASE_URL = "http://localhost:8080/api/todo";
 
@@ -9,6 +11,7 @@ const TodoApp = () => {
   const [newTask, setNewTask] = useState("");
   const [error, setError] = useState("");
   const [editingTask, setEditingTask] = useState(null);
+  const [editingText, setEditingText] = useState("");
 
   useEffect(() => {
     fetchTasks();
@@ -16,7 +19,8 @@ const TodoApp = () => {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch(API_BASE_URL + "/");
+      const response = await fetch(`${API_BASE_URL}/`);
+      if (!response.ok) throw new Error("Failed to fetch tasks");
       const data = await response.json();
       setTasks(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -30,49 +34,47 @@ const TodoApp = () => {
       return;
     }
     try {
-      const response = await fetch(API_BASE_URL + "/", {
+      const response = await fetch(`${API_BASE_URL}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTask.trim() }),
       });
-      if (response.ok) {
-        fetchTasks();
-        setNewTask("");
-        setError("");
-      }
+      if (!response.ok) throw new Error("Failed to add task");
+      fetchTasks();
+      setNewTask("");
+      setError("");
     } catch (error) {
       console.error("Error adding task:", error);
+      toast.error("Only characters and numbers are allow");
     }
   };
 
   const deleteTask = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) {
-      return;
-    }
+    if (!window.confirm("Are you sure you want to delete this task?")) return;
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, { method: "DELETE" });
-      if (response.ok) {
-        fetchTasks();
-      }
+      if (!response.ok) throw new Error("Failed to delete task");
+      fetchTasks();
+      toast.info("Task deleted successfully!");
     } catch (error) {
       console.error("Error deleting task:", error);
     }
   };
 
-  const updateTask = async (id, newText) => {
-    if (!newText.trim()) return;
+  const updateTask = async (id) => {
+    if (!editingText.trim()) return;
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newText.trim() }),
+        body: JSON.stringify({ title: editingText.trim() }),
       });
-      if (response.ok) {
-        fetchTasks();
-        setEditingTask(null);
-      }
+      if (!response.ok) throw new Error("Failed to update task");
+      fetchTasks();
+      setEditingTask(null);
     } catch (error) {
       console.error("Error updating task:", error);
+      toast.error("Only characters and numbers are allow");
     }
   };
 
@@ -81,6 +83,7 @@ const TodoApp = () => {
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">Task Manager</h1>
+          <ToastContainer />
 
           <div className="mb-6">
             <div className="flex gap-2">
@@ -107,15 +110,24 @@ const TodoApp = () => {
             ) : (
               <motion.ul className="space-y-3" layout initial="hidden" animate="visible" exit="exit">
                 {tasks.map((task) => (
-                  <motion.li
-                    key={task.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors duration-150"
-                  >
+                  <motion.li key={task.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors duration-150">
                     <div className="flex items-center flex-1">
-                      <span className={`flex-1 ${task.completed ? "line-through text-gray-400" : "text-gray-700"}`}>{task.title}</span>
+                      {editingTask === task.id ? (
+                        <input
+                          type="text"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onBlur={() => updateTask(task.id)}
+                          onKeyPress={(e) => e.key === "Enter" && updateTask(task.id)}
+                          autoFocus
+                          className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <span className={`flex-1 ${task.completed ? "line-through text-gray-400" : "text-gray-700"}`}>{task.title}</span>
+                      )}
                     </div>
                     <div className="flex space-x-2 ml-4">
-                      <button onClick={() => setEditingTask(task.id)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full">
+                      <button onClick={() => { setEditingTask(task.id); setEditingText(task.title); }} className="p-2 text-blue-600 hover:bg-blue-100 rounded-full">
                         <FiEdit2 className="h-4 w-4" />
                       </button>
                       <button onClick={() => deleteTask(task.id)} className="p-2 text-red-600 hover:bg-red-100 rounded-full">
